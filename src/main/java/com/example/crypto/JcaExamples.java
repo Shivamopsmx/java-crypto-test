@@ -65,9 +65,20 @@ public class JcaExamples {
     }
 
     public byte[] tripleDes(byte[] key, byte[] data) throws Exception {
-        Cipher c = Cipher.getInstance("DESede/CBC/PKCS5Padding");      // 3DES — weak (Sweet32)
-        c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "DESede"), new IvParameterSpec(new byte[8]));
-        return c.doFinal(data);
+        // Migrated from 3DES/CBC to AES-256-GCM (authenticated encryption).
+        // key must be 32 bytes (AES-256). A fresh 12-byte random nonce is
+        // prepended to the returned ciphertext so the caller can extract it
+        // for decryption (matches the pattern used by aesGcm() above).
+        byte[] iv = new byte[12];
+        new SecureRandom().nextBytes(iv);
+        Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+        c.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"), new GCMParameterSpec(128, iv));
+        byte[] ciphertext = c.doFinal(data);
+        // Prepend IV: [12-byte nonce || ciphertext+tag]
+        byte[] output = new byte[iv.length + ciphertext.length];
+        System.arraycopy(iv, 0, output, 0, iv.length);
+        System.arraycopy(ciphertext, 0, output, iv.length, ciphertext.length);
+        return output;
     }
 
     public byte[] des(byte[] key, byte[] data) throws Exception {
